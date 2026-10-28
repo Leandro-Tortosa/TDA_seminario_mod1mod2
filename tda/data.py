@@ -70,28 +70,54 @@ def download_osm_network(lat: float, lon: float, radius: float,
                          consolidation: float = 10.0) -> dict:
     """Descarga la red de OSM, la recorta a un círculo y consolida los nodos.
 
-    La consolidación funde en un único nodo todas las intersecciones situadas a
-    menos de ``consolidation`` metros entre sí (OSMnx usa un buffer de radio
-    ``tolerance`` alrededor de cada nodo, por eso se pasa la mitad).
+    Incluye:
+      1. Caché persistente en disco (data/cache_osm/) para carga instantánea offline.
+      2. Rotación de servidores espejo (mirrors) internacionales independientes.
+      3. Restauración de DNS por si un servidor rechaza la conexión.
     """
+    import pickle
+    from pathlib import Path
+    import socket
     import networkx as nx
     import osmnx as ox
 
+    # Comprobación de caché en disco (evita saturar Overpass)
+    cache_dir = Path(__file__).resolve().parent.parent / "data" / "cache_osm"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_key = hashlib.sha256(
+        f"{lat:.5f}_{lon:.5f}_{int(radius)}_{network_type}_{float(consolidation):.1f}".encode()
+    ).hexdigest()[:16]
+    cache_file = cache_dir / f"osm_{cache_key}.pkl"
+
+    if cache_file.exists():
+        try:
+            with open(cache_file, "rb") as f:
+                cached_data = pickle.load(f)
+            return cached_data
+        except Exception:
+            pass  # Si el archivo está corrupto, se vuelve a descargar
+
     ox.settings.use_cache = True
     ox.settings.log_console = False
-    ox.settings.requests_timeout = 120
+    ox.settings.requests_timeout = 180
+    ox.settings.overpass_rate_limit = False
 
+    # Servidores espejo independientes en distintas geografías
     endpoints = [
-        "https://overpass-api.de/api",
-        "https://lz4.overpass-api.de/api",
-        "https://z.overpass-api.de/api",
+        "https://maps.mail.ru/osm/tools/overpass/api",
         "https://overpass.kumi.systems/api",
+        "https://overpass.private.coffee/api",
+        "https://overpass-api.de/api",
     ]
 
     G = None
     last_err = None
     for ep in endpoints:
         try:
+            # Restaurar socket.getaddrinfo si OSMnx lo modificó para una IP previa
+            if hasattr(socket, "_original_getaddrinfo"):
+                socket.getaddrinfo = socket._original_getaddrinfo
+
             ox.settings.overpass_url = ep
             G = ox.graph_from_point(
                 (lat, lon), dist=float(radius), dist_type="bbox",
@@ -106,12 +132,13 @@ def download_osm_network(lat: float, lon: float, radius: float,
 
     if G is None:
         raise RuntimeError(
-            f"El servidor público de OpenStreetMap (Overpass API) está temporalmente saturado o ha "
-            f"rechazado la descarga para un radio de {int(radius)} m (área de {int(2*radius)}x{int(2*radius)} m "
-            f"con miles de tramos y cruces viales en Lima).\n\n"
-            f"💡 Recomendación: para centros urbanos densos, los radios de 400 m a 800 m se descargan de "
-            f"forma casi instantánea (2 a 4 segundos). Si necesitas un radio grande, espera 30 segundos "
-            f"a que el servidor público libere el límite de consultas (rate-limit) o vuelve a pulsar el botón.\n\n"
+            f"Los servidores públicos de OpenStreetMap (Overpass API) están temporalmente saturados "
+            f"o han rechazado la descarga para un radio de {int(radius)} m (área de {int(2*radius)}x{int(2*radius)} m).\n\n"
+            f"💡 Recomendaciones:\n"
+            f"1. Para radios grandes (1000 m o 1500 m), el servidor puede tardar entre 20 y 45 segundos según la cola.\n"
+            f"2. Puedes usar radios de 400 m a 800 m para una respuesta casi instantánea.\n"
+            f"3. Si deseas analizar nubes de puntos de gran escala sin depender de los servidores públicos de OSM, "
+            f"puedes usar la pestaña de Dataset CSV propio o el dataset de ejemplo.\n\n"
             f"Detalle técnico original: {last_err}"
         )
 
@@ -167,7 +194,7 @@ def download_osm_network(lat: float, lon: float, radius: float,
     inv = Transformer.from_crs(epsg, 4326, always_xy=True)
     nlon, nlat = inv.transform(x, y)
 
-    return dict(
+    res = dict(
         key=f"osm|{lat:.6f}|{lon:.6f}|{radius}|{network_type}|{consolidation}",
         source="osm", lon=np.asarray(nlon), lat=np.asarray(nlat), x=x, y=y,
         epsg=epsg, graph_edges=E, graph_len=L, streets=streets,
@@ -175,6 +202,14 @@ def download_osm_network(lat: float, lon: float, radius: float,
         meta=dict(n_raw=n_raw, n_nodes=len(node_ids), n_edges=len(E),
                   network_type=network_type, consolidation=consolidation),
     )
+
+    try:
+        with open(cache_file, "wb") as f:
+            pickle.dump(res, f)
+    except Exception:
+        pass
+
+    return res
 
 
 # --------------------------------------------------------------------------- #
@@ -262,3 +297,4 @@ def parse_points_csv(raw: bytes, max_points: int = 6000) -> dict:
                   n_total=n_total, n_invalid=n_invalid, n_dup=n_dup,
                   n_sub=n_sub, n_points=len(df)),
     )
+
