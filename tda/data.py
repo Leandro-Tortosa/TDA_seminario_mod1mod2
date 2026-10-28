@@ -297,4 +297,3 @@ def parse_points_csv(raw: bytes, max_points: int = 6000) -> dict:
                   n_total=n_total, n_invalid=n_invalid, n_dup=n_dup,
                   n_sub=n_sub, n_points=len(df)),
     )
-
