@@ -111,13 +111,13 @@ El panel lateral izquierdo agrupa todos los controles de entrada y modelado en c
 - **Número de Nodos Fuente ($k$)**: Deslizador de 10 a 200 (por defecto 50). Permite un compromiso idóneo entre precisión estadística y velocidad instantánea en redes con miles de elementos.
 
 ### 3.3. Configuración Cartográfica y Visual
-- **6 Mapas Base Optimizados**:
-  1. *Esri claro*: Fondo gris tenue que atenúa el ruido visual urbano y destaca la coloración topológica.
-  2. *Esri oscuro*: Fondo nocturno de alto contraste, ideal para contrastar paletas brillantes.
-  3. *CartoDB Positron*: Estilo cartográfico claro, moderno y minimalista con rotulación sutil.
-  4. *CartoDB Dark Matter*: Fondo oscuro elegante y sobrio.
-  5. *Lienzo en blanco (Blank Canvas)*: Fondo blanco puro (`#ffffff`) sin cartografía base callejera, concebido para exportar figuras limpias para informes y artículos científicos.
-  6. *Esri topográfico*: Cartografía con relieve físico sombreado y curvas de nivel, útil para relacionar la conectividad con accidentes geográficos (ríos, cerros).
+- **Mapas Base Optimizados (100% Abiertos y Gratuitos, sin necesidad de API Key)**:
+  1. *Esri topográfico* (Predeterminado): Cartografía con relieve orográfico sombreado y curvas de nivel, idóneo para contrastar la red urbana con barreras físicas.
+  2. *OpenStreetMap estándar*: Mapa callejero universal y gratuito de OpenStreetMap.
+  3. *OpenStreetMap Humanitario (HOT)*: Estilo cartográfico claro de alta legibilidad urbana.
+  4. *OpenTopoMap (Topográfico libre)*: Mapa topográfico abierto con curvas de nivel e hidrografía.
+  5. *Esri claro (Gris neutro)*: Fondo gris claro que atenúa el ruido urbano y resalta el complejo simplicial coloreado.
+  6. *Lienzo en blanco (Blank Canvas)*: Fondo blanco puro (`#ffffff`) sin mapa callejero de fondo, concebido para exportar figuras limpias para artículos e informes.
 - **Paletas de Color Continuas**: `viridis`, `plasma`, `inferno`, `magma`, `cividis`, `turbo`.
 - **Modo de Escala**: *Cuantiles* (reparte equitativamente los tonos cromáticos independientemente de colas pesadas) o *Lineal*.
 - **Tamaño de los Vértices**: Deslizador de 1.0 a 8.0 px para adaptar la legibilidad según el radio geográfico.
@@ -159,19 +159,139 @@ Ofrece una vista panorámica integral del complejo simplicial a escala completa:
 ---
 
 ### 4.2. Pestaña 2: Filtraciones Multiescala
-Permite estudiar la evolución y el nacimiento/muerte de la forma topológica a medida que varía la escala:
-1. **Selector de Variable de Filtración**:
-   - `📏 Distancia (m)`: Filtración métrica clásica $K_\varepsilon \subseteq K_\alpha$. A $\varepsilon = 0$ los vértices están desconectados; a medida que $\varepsilon$ se expande, se unen aristas y se rellenan caras.
-   - `⭐ Betweenness (más centrales primero)`: Filtración *lower-star* descendente. Permite observar cómo el "esqueleto" arterial de la ciudad se forma primero y cómo se integran paulatinamente las vías locales.
-   - `🔻 Betweenness (menos centrales primero)`: Filtración *lower-star* ascendente.
-2. **Controles Dinámicos**:
-   - Deslizador de umbral de filtración ($\varepsilon$ o nivel $t \in [0, 1]$).
-   - Selector de coloreado de los elementos: por *Valor de filtración propio* o por *Centralidad Betweenness*.
-   - Casilla de verificación para **mostrar los agujeros $H_1$ vivos**: dibuja con línea discontinua roja la arista que genera el ciclo y rellena el triángulo donde morirá el vacío.
-3. **Mapa del Subcomplejo Filtrado**:
-   - Incluye una "capa fantasma" semitransparente con el complejo completo $K_\alpha$ de fondo, permitiendo al alumno ver con exactitud qué porcentaje de la red se ha consolidado en el umbral actual.
-4. **Curvas de Betti**:
-   - Gráfico continuo de $\beta_0(\varepsilon)$ y $\beta_1(\varepsilon)$ con un marcador vertical interactivo que sigue el deslizador del alumno.
+
+Mientras que la Pestaña 1 muestra una «fotografía fija» del complejo simplicial en su escala máxima $\alpha$, la **Pestaña 2** permite reproducir la «película» completa de su construcción: una **filtración simplicial**, es decir, una familia anidada de subcomplejos
+$$\emptyset \subseteq K_{t_0} \subseteq K_{t_1} \subseteq \dots \subseteq K_{\text{máx}} = K_\alpha$$
+donde cada símplex $\sigma \in K_\alpha$ posee un instante o umbral de entrada $f(\sigma)$ y el subcomplejo activo en el umbral $t$ es $K_t = \{\sigma \in K_\alpha : f(\sigma) \le t\}$.
+
+---
+
+#### 4.2.1. Variables de Filtración Disponibles
+
+El control **«Variable de filtración»** define la regla matemática $f(\sigma)$ que gobierna el orden en que nacen los vértices, aristas y triángulos:
+
+1. **`📏 Distancia (m)` — Filtración métrica geométrica ($K_\varepsilon \subseteq K_\alpha$)**:
+   - **Vértices (0-símplices)**: Todos tienen valor de filtración $f(v) = 0\,\text{m}$. Por tanto, **todos los nodos existen en el mapa desde $\varepsilon = 0$** como puntos aislados ($\beta_0 = V$).
+   - **Aristas (1-símplices)**: Entran cuando el umbral $\varepsilon$ alcanza su escala métrica $f(e)$:
+     - En **Vietoris–Rips** y **Flag (clique)**: $f(e)$ es la longitud física de la arista en metros.
+     - En **Alpha complejo**: $f(e) = 2\sqrt{\alpha_e^2}$ es el diámetro (en metros) de la menor bola vacía o restringida a las celdas de Voronoi en la que se cortan las regiones de sus extremos.
+   - **Triángulos (2-símplices)**: Entran cuando $\varepsilon$ alcanza $f(\tau)$:
+     - En **Vietoris–Rips** y **Flag**: $f(\tau) = \max_{e \subset \tau} f(e)$ (la longitud de su lado más largo, instante en que se cierra la 3-camarilla).
+     - En **Alpha complejo**: $f(\tau) = 2R_\tau$, donde $R_\tau$ es el radio circunscrito de Delaunay/Voronoi del triángulo (siempre $\ge$ que sus tres aristas).
+   - **Lectura urbana**: Al deslizar $\varepsilon$ desde $0$ hasta $\alpha$, se observa cómo los puntos cercanos se agrupan primero en pequeños racimos locales, cómo disminuye el número de componentes conexas ($\beta_0 \downarrow$) hasta formar la componente gigante, y cómo emergen y se sellan los vacíos urbanos ($\beta_1$).
+
+2. **`⭐ Betweenness (más centrales primero)` — Filtración *lower-star* descendente ($t \in [0, 1]$)**:
+   - Sea $\tilde{c}(v) = \frac{\text{BC}(v)}{\max_u \text{BC}(u)} \in [0, 1]$ la centralidad de intermediación normalizada de cada vértice.
+   - A cada vértice se le asigna el valor de entrada $f(v) = 1 - \tilde{c}(v) \in [0, 1]$, y a cada arista o triángulo se le asigna el máximo de sus vértices (**regla de la estrella inferior o *lower-star***):
+     $$f(\sigma) = \max_{v \in \sigma} f(v)$$
+   - Esto garantiza que una calle o triángulo entra en el subcomplejo $K_t$ **en el instante exacto en que todos sus vértices han superado el umbral de centralidad** $\tilde{c}(v) \ge 1 - t$.
+   - **Lectura urbana**: En $t$ cercano a $0$ solo aparecen las intersecciones más estratégicas de toda la ciudad; al avanzar $t$, se dibuja primero la **columna vertebral o esqueleto arterial** de grandes avenidas y puentes de flujo, y solo al final ($t \to 1$) se rellenan las calles residenciales y fondos de saco.
+
+3. **`🔻 Betweenness (menos centrales primero)` — Filtración *lower-star* ascendente ($t \in [0, 1]$)**:
+   - Invierte el orden anterior asignando $f(v) = \tilde{c}(v)$ y $f(\sigma) = \max_{v \in \sigma} \tilde{c}(v)$.
+   - **Lectura urbana**: Nacen primero las zonas periféricas, tranquilas o de baja intermediación ($\tilde{c}(v) \le t$), mientras que los grandes corredores arteriales quedan ausentes al principio, dejando **grandes vacíos o trincheras topológicas** allí donde discurren las avenidas principales hasta que $t$ se aproxima a $1$.
+
+---
+
+#### 4.2.2. ¿Cómo se interpreta la representación en el Mapa de la Pestaña 2?
+
+Para que el alumno nunca pierda la referencia espacial ni el contexto de qué parte de la ciudad falta por activarse, el mapa de la Pestaña 2 superpone **tres niveles visuales claramente diferenciados** (controlables desde el cuadro de capas de la esquina superior derecha):
+
+1. **Fondo de referencia o «Capa Fantasma» (`Complejo completo K_α`)**:
+   - Representa el estado final completo $K_\alpha$ (el mismo complejo íntegro de la Pestaña 1), pero dibujado de forma atenuada:
+     - **Aristas de $K_\alpha$**: Líneas **discontinuas gris-azuladas** finas (`dashArray: 4, 4`).
+     - **Triángulos de $K_\alpha$**: Polígonos con un **relleno azul traslúcido muy suave** (opacidad del $22\,\%$).
+   - **¿Cómo leerlo?**: Todo lo que se vea únicamente como línea punteada gris o sombra azulada tenue es estructura que **todavía NO ha nacido** en el umbral actual $t$ (su valor de filtración supera a $t$, es decir, $f(\sigma) > t$). Sirve como «molde» o «plantilla» del complejo final.
+
+2. **Primer plano activo (`0-símplices`, `1-símplices` y `2-símplices` del subcomplejo $K_t$)**:
+   - Sobre la plantilla fantasma se dibujan con **trazo continuo sólido y colores intensos** (según la paleta activa: `viridis`, `plasma`, etc.) únicamente los elementos que **ya han nacido en el umbral actual** ($f(\sigma) \le t$):
+     - **Vértices activos ($f(v) \le t$)**: Círculos coloreados con borde definido e información interactiva al pasar el ratón (*tooltip*).
+     - **Aristas activas ($f(e) \le t$)**: Segmentos continuos de grosor medio ($2\,\text{px}$) que tapan la línea discontinua gris de la capa fantasma a medida que se consolidan.
+     - **Triángulos activos ($f(\tau) \le t$)**: Caras rellenas con el color correspondiente de la escala (opacidad $38\,\%$), que indican zonas donde el tejido espacial ya es continuo y bidimensionalmente compacto (sin agujeros internos entre esos tres nodos).
+
+3. **Capa superpuesta de Topología de Dimensión 1 (`Agujeros H₁ vivos`)**:
+   - En color **rojo brillante** se destacan los ciclos o vacíos unidimensionales que están abiertos en el instante exacto $t$ seleccionado (detallados en el apartado siguiente).
+
+---
+
+#### 4.2.3. ¿Qué significa la representación de $H_1$ (Agujeros Vivos) y cómo se interpreta en el mapa?
+
+En Homología Persistente, el primer grupo de homología $H_1(K_t)$ captura los **ciclos independientes de aristas (lazos cerrados) cuyo interior todavía no está pavimentado por triángulos (2-símplices)**.
+
+Cada clase homológica en $H_1$ posee un intervalo de vida $[b, d)$ calculado de forma exacta mediante reducción matricial sobre $\mathbb{Z}/2\mathbb{Z}$ en GUDHI:
+- **Instante de nacimiento ($b$, *birth*)**: Valor del umbral en el que entra la **última arista** que cierra el camino circular por primera vez.
+- **Instante de muerte ($d$, *death*)**: Valor del umbral posterior en el que entra el **último triángulo** que termina de tapar o rellenar el interior del lazo. Si incluso en el complejo máximo $K_\alpha$ el agujero sigue sin rellenarse por completo, el ciclo nunca muere dentro del rango estudiado y se dice que es una **clase esencial ($d = \infty$)**.
+- **Persistencia ($p = d - b$)**: Duración o resistencia del vacío a lo largo de las escalas.
+
+##### ¿Cuándo está «vivo» un agujero $H_1$?
+Un agujero $H_1$ está **vivo en el umbral actual $t$** del deslizador si y solo si **ya ha nacido pero todavía no ha muerto**:
+$$b \le t < d$$
+La cantidad total de agujeros vivos en ese umbral $t$ coincide exactamente con el **primer número de Betti $\beta_1(t)$** mostrado en las tarjetas KPI y en la curva de Betti inferior.
+
+##### ¿Qué significan los 3 elementos gráficos rojos que dibuja el mapa para cada agujero $H_1$ vivo?
+Cuando la casilla **«Mostrar agujeros $H_1$ vivos en el umbral»** está activa, el mapa representa hasta los 20 agujeros vivos de mayor persistencia mediante tres elementos geométricos complementarios:
+
+| Elemento visual en el mapa | Significado matemático (pares de persistencia) | ¿Cómo interpretarlo sobre la ciudad o los datos? |
+| :--- | :--- | :--- |
+| **1. Línea discontinua roja gruesa** (*Arista creadora / generador de nacimiento*) | Es el 1-símplex crítico $e_{\text{birth}}$ con $f(e_{\text{birth}}) = b$ que, al añadirse en el umbral $b$, cerró el circuito creando la clase de homología en $H_1$. | Muestra el **«puente» o eslabón que terminó de rodear el vacío**. Si esa única conexión se eliminara en el instante $b$, el anillo dejaría de estar cerrado. |
+| **2. Triángulo sombreado en rojo translúcido** (*Triángulo matador / símplex de muerte*) | Es el 2-símplex crítico $\tau_{\text{death}}$ con $f(\tau_{\text{death}}) = d > t$ emparejado con $e_{\text{birth}}$ en el algoritmo de persistencia. Cuando el deslizador llegue en el futuro a $t = d$, este triángulo entrará y sellará definitivamente el ciclo. | **¡Atención pedagógica clave!**: En el umbral actual $t < d$, este triángulo **aún NO pertenece al complejo activo**; se dibuja en rojo para **localizar el corazón geométrico del vacío** (el último rincón del agujero que tardará más en cubrirse). *Nota*: Si el agujero no muere antes de $\alpha$ ($d = \infty$), no existe triángulo matador y solo se muestra la arista discontinua roja. |
+| **3. Círculo rojo con borde blanco** (*Marcador de persistencia y consulta*) | Se ubica en el baricentro del triángulo matador (o en el punto medio de la arista creadora si $d = \infty$). Su **radio es proporcional a la persistencia $(d - b)$** del ciclo. | **Tamaño del círculo = importancia del vacío**: Un círculo rojo grande señala una **señal topológica estructural** (un gran parque, un cerro, el cauce de un río o un desierto de cobertura sanitaria); un círculo pequeño señala ruido local (una manzana pequeña). |
+
+> **💡 Interacción con el ratón (*Tooltip* de $H_1$)**: Al situar el cursor sobre cualquiera de los tres elementos rojos (la arista discontinua, el triángulo rojo o el círculo central), se despliega una etiqueta emergente con:
+> - **`H₁ #k`**: Posición en el ranking de los agujeros vivos más persistentes (`#1` es el vacío más importante presente en ese umbral).
+> - **`nacimiento`**: Escala exacta $b$ en la que se cerró el ciclo.
+> - **`muerte`**: Escala futura $d$ en la que se tapará el agujero (o `∞ (no se rellena)` si sobrevive hasta el final).
+> - **`persistencia`**: Vida total $d - b$ del agujero.
+
+---
+
+#### 4.2.4. ¿Qué diferencia hay entre colorear por «Valor de filtración» o por «Centralidad betweenness»?
+
+Es fundamental distinguir entre **qué filtra la presencia de los elementos** y **qué determina su color**:
+- **¿Qué elementos se ven en el mapa?**: Lo decide exclusivamente la **Variable de filtración** junto con el **deslizador de umbral** ($f(\sigma) \le t$).
+- **¿De qué color se pintan esos elementos activos?**: Lo decide el selector **«Colorear por»**, que permite alternar entre dos lecturas analíticas distintas sobre el mismo subcomplejo activo:
+
+##### Opción 1: Colorear por `Valor de filtración` (Perspectiva cronológica o «edad de nacimiento»)
+Asigna a cada símplex activo el color correspondiente al **umbral exacto en el que nació**, manteniendo la barra de colores fija en el rango completo $[0, \alpha]$ (o $[0, 1]$) para que el color de cada elemento sea constante al mover el deslizador:
+- **En la filtración por `📏 Distancia`**:
+  - Las **aristas activas** se colorean según su escala de entrada $f(e)$ en metros, y los **triángulos activos** según la escala $f(\tau)$ en metros a la que se rellenan.
+  - Dado que en esta filtración todos los vértices tienen $f(v) = 0$, para evitar que todos los puntos tengan un único color uniforme irrelevante, cada **vértice** se colorea según su **distancia de primera conexión** ($\min_{e \ni v} f(e)$, es decir, los metros necesarios para que ese nodo deje de estar aislado y se conecte a su vecino más próximo; si un vértice permanece totalmente aislado en $K_\alpha$, toma el valor $\alpha$).
+  - **¿Qué permite descubrir?**: Funciona como un **mapa de calor cronológico de densidades y alcances**. Los tonos del extremo inferior de la paleta (p. ej. violeta/azul en `viridis`) revelan los núcleos hiperdensos donde los nodos y manzanas se compactan a distancias muy cortas, mientras que los tonos del extremo superior (verde/amarillo) resaltan los enlaces largos de unión interdistrital y las caras que acaban de cerrarse cerca del umbral actual $\varepsilon$.
+- **En las filtraciones por `⭐ / 🔻 Betweenness`**:
+  - Colorea vértices, aristas y triángulos según su nivel de entrada $f(\sigma) \in [0, 1]$ en la filtración *lower-star*, mostrando como «anillos de crecimiento» qué elementos entraron en las etapas iniciales ($t \approx 0$) y cuáles acaban de incorporarse en la frontera del umbral actual.
+
+##### Opción 2: Colorear por `Centralidad betweenness` (Perspectiva funcional o «jerarquía de flujo»)
+Independientemente de cuándo nació cada elemento en la filtración, pinta todos los elementos activos según su **importancia de intermediación (*betweenness*) en el grafo global $K_\alpha$**:
+- Los **vértices activos** muestran su centralidad $\text{BC}(v)$.
+- Las **aristas y triángulos activos** muestran el **promedio de la centralidad *betweenness*** de los vértices que los componen.
+- **¿Qué permite descubrir?**: Su mayor potencia pedagógica aparece cuando se combina con la **filtración por `📏 Distancia`**. De este modo se cruzan **dos dimensiones independientes en un único mapa**:
+  1. **La geometría multiescala** (controlada por el deslizador $\varepsilon$, que muestra qué conexiones físicas existen a menos de $\varepsilon$ metros y qué agujeros $H_1$ están abiertos).
+  2. **La jerarquía funcional de transporte/red** (mostrada por el color, que distingue qué tramos dentro de ese subcomplejo $\varepsilon$ son grandes corredores arteriales o puentes críticos de flujo frente a calles locales secundarias).
+
+##### Tabla resumen comparativa
+
+| Criterio | Colorear por «Valor de filtración» | Colorear por «Centralidad betweenness» |
+| :--- | :--- | :--- |
+| **Pregunta a la que responde** | *«¿A qué escala o en qué momento nació cada conexión y cada cara?»* | *«¿Qué importancia estratégica o de flujo tiene cada nodo y tramo activo en la red?»* |
+| **Color de las aristas y triángulos** | Su propio umbral de aparición $f(e)$ o $f(\tau)$ en la filtración. | El promedio de la centralidad *betweenness* de sus vértices. |
+| **Color de los vértices** | En distancia: escala $\varepsilon$ de su primera arista incidente ($\min_{e \ni v} f(e)$). En betweenness: su nivel de entrada $f(v)$. | Su valor de centralidad de intermediación $\text{BC}(v)$ en el 1-esqueleto. |
+| **Uso recomendado** | Entender el crecimiento multiescala, identificar zonas densas (nacen pronto) frente a zonas dispersas (se conectan tarde). | Cruzar la escala métrica $\varepsilon$ con la jerarquía vial para ver qué arterias principales vertebran los componentes y rodean los agujeros $H_1$. |
+
+---
+
+#### 4.2.5. Indicadores KPI del Umbral y Curvas de Betti Sincronizadas
+
+Debajo del mapa de la Pestaña 2 se actualizan en tiempo real dos bloques cuantitativos sincronizados con el deslizador:
+1. **Banda de 8 Indicadores KPI en el umbral $t$**:
+   - **Vértices activos, Aristas y Triángulos**: Conteo actual en $K_t$ comparado con el total disponible en $K_\alpha$.
+   - **$\beta_0(t)$ (Componentes conexas)**: Número de islas o racimos desconectados entre sí en el umbral $t$.
+   - **$\beta_1(t)$ (Agujeros vivos)**: Número exacto de ciclos independientes abiertos en el umbral $t$ (coincide con los agujeros $H_1$ vivos del mapa).
+   - **$\chi(t) = V_t - E_t + F_t$**: Característica de Euler instantánea del subcomplejo $K_t$.
+   - **Componente gigante (%)**: Porcentaje de los vértices activos que ya han quedado unidos dentro de la mayor componente conexa (permite detectar el **umbral crítico de percolación** de la red urbana).
+   - **Grado medio**: Número medio de conexiones por vértice activo en el 1-esqueleto actual.
+2. **Gráfico de Curvas de Betti ($\beta_0$ y $\beta_1$)**:
+   - Traza la evolución continua de $\beta_0(t)$ (azul) y $\beta_1(t)$ (naranja) a lo largo de todo el dominio $[0, \alpha]$ o $[0, 1]$.
+   - Incorpora una **línea vertical discontinua interactiva** que señala la posición exacta del deslizador del alumno, facilitando relacionar los picos y valles de las curvas con los cambios estructurales observados en el mapa.
 
 ---
 
@@ -205,6 +325,8 @@ Para posibilitar que la aplicación responda con fluidez en entornos de recursos
    - Folium está configurado con `prefer_canvas=True`, descargando el trabajo de rasterización en la aceleración por hardware de la GPU del navegador del alumno.
 4. **Protección Anti-Explosión Combinatoria**:
    - Para el complejo de Vietoris–Rips, se computa una cota superior del número de triángulos a partir de la distribución de grados de los vértices ($\sum \binom{d_i}{2} / 3$). Si supera los 350.000 triángulos, se detiene la expansión y se advierte al usuario, impidiendo caídas por falta de memoria (OOM).
+5. **Auto-encuadre Reactivo en Pestañas Ocultas (`_AutoFitBounds` con `ResizeObserver`)**:
+   - En Streamlit, las pestañas inactivas (`st.tabs`) se montan inicialmente en el DOM con `display: none` (dimensiones `0x0` píxeles), lo que provocaba que el método estándar `fitBounds()` de Leaflet calculara un zoom de nivel `0` (escala mundial) en la Pestaña 2. Mediante un observador `ResizeObserver` integrado en `MapBuilder`, el mapa detecta el instante exacto en que la pestaña pasa a ser visible y recalcula automáticamente `invalidateSize()` + `fitBounds()`, centrando y ajustando el zoom sobre el grafo sin intervención manual.
 
 ---
 
@@ -252,10 +374,10 @@ git commit -m "feat: Aplicación 1 TDA (Módulos 1 y 2 UP)"
 
 #### Paso 2: Crear el repositorio en GitHub
 1. Abre tu navegador y accede a [GitHub](https://github.com/new).
-2. Crea un nuevo repositorio (por ejemplo, `TDA-Lima-App1`).
+2. Crea un nuevo repositorio (por ejemplo, `TDA_seminario_mod1mod2`).
 3. Conecta el repositorio local con GitHub y sube los cambios:
 ```bash
-git remote add origin https://github.com/Leandro-Tortosa/TDA_seminario_mod1mod2.git
+git remote add origin https://github.com/TU_USUARIO/TDA-Lima-App1.git
 git branch -M main
 git push -u origin main
 ```
@@ -285,3 +407,10 @@ Significa que el ciclo o lazo nació a una distancia pequeña ($b_i$) y se mantu
 
 ### ¿Cómo interpretar la Característica de Euler ($\chi$)?
 La relación $\chi = V - E + F = \beta_0 - \beta_1 + \beta_2$ es una de las joyas de la topología algebraica. Permite al alumno verificar la coherencia combinatoria global de la red: cada componente aislada suma $+1$ a $\chi$, cada arista que forma un ciclo independiente resta $-1$, y cada cara que rellena un ciclo suma $+1$.
+
+### ¿Por qué en los agujeros $H_1$ vivos de la Pestaña 2 se dibuja un triángulo rojo si el agujero aún está abierto?
+Porque en homología persistente cada ciclo $H_1$ que muere en un umbral futuro $d > t$ está emparejado algebraicamente con un **único 2-símplex crítico** (el *triángulo matador* $\tau_{\text{death}}$). En el umbral actual $t$, ese triángulo **todavía no ha entrado en el subcomplejo activo** (por eso el agujero sigue vivo), pero se proyecta en rojo translúcido sobre el mapa para mostrarle al usuario **dónde está el epicentro del vacío** y cuál será la pieza exacta que terminará de sellarlo cuando el deslizador alcance $t = d$. Si el agujero es tan grande que ni siquiera en $K_\alpha$ llega a taparse ($d = \infty$), no existe triángulo matador y solo se dibuja en rojo discontinuo la *arista creadora* ($e_{\text{birth}}$).
+
+### ¿Cuándo conviene colorear por «Valor de filtración» y cuándo por «Centralidad betweenness» en la Pestaña 2?
+- Usa **«Valor de filtración»** cuando quieras responder a la pregunta *«¿qué partes de la red nacieron primero y cuáles acaban de formarse?»* (cronología multiescala y densidad local).
+- Usa **«Centralidad betweenness»** cuando quieras cruzar la escala geométrica del deslizador con la **importancia funcional vial**, distinguiendo qué tramos del subcomplejo activo son arterias principales de flujo frente a calles locales.
