@@ -165,6 +165,13 @@ try:
         d = load_csv(SAMPLE_CSV.read_bytes())
 except Exception as exc:  # noqa: BLE001
     st.error(f"No se pudieron cargar los datos: {exc}")
+    if is_osm:
+        st.info("💡 **Solución inmediata**: Si los servidores públicos mundiales de OpenStreetMap están temporalmente saturados, pulsa el siguiente botón para cargar la red precargada de Lima Centro sin depender de la conexión externa:")
+        if st.button("🏛️ Cargar red precargada de Lima Centro (1.000 m)", type="primary"):
+            st.session_state.osm_params = (-12.04637, -77.03019, 1000, "drive", 10.0)
+            st.session_state.lat, st.session_state.lon = -12.04637, -77.03019
+            st.session_state.radius = 1000
+            st.rerun()
     st.stop()
 
 cx_key = f"{d['key']}|{kind}|{alpha}"
